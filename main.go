@@ -68,7 +68,9 @@ func main() {
 	logIoPtr := flag.Bool("log-ioregs", false, "Log access to i/o regs")
 	gamepadPtr := flag.Bool("use-gamepad", false, "Try to use gamepad if available")
 	gamepadNumPtr := int32(*flag.Int("gamepad", 0, "Gamepad number"))
-	// hostPtr := flag.Bool("host", false, "Host 2 player mode")
+	hostPtr := flag.Bool("host", false, "Host 2 player mode")
+	connectPtr := flag.Bool("connect", false, "Connect to 2 player mode")
+	addrPtr := flag.String("addr", "localhost:9123", "Address of host")
 
 	flag.Parse()
 
@@ -87,6 +89,24 @@ func main() {
 		panic(err)
 	}
 
+	useSdt := *hostPtr || *connectPtr
+	if useSdt {
+		rl.BeginDrawing()
+		rl.ClearBackground(rl.White)
+		if *hostPtr {
+			rl.SetWindowTitle("goboy (Host)")
+			rl.DrawText("Waiting for second player", 22, screenHeight/2-22, 22, rl.Purple)
+		} else {
+			rl.SetWindowTitle("goboy (Client)")
+			rl.DrawText("Waiting for connection", 0, screenHeight/2-22, 22, rl.Purple)
+		}
+		rl.EndDrawing()
+
+	}
+
+	sdt := &ioregs.SerialDataTransfer{ShouldConnect: useSdt, Addr: *addrPtr, IsHost: *hostPtr}
+	sdt.Init()
+
 	cpu.Bus.RegisterRange(0xFF10, 0xFF3F, &ioregs.Audio{})
 	lcd := &ioregs.LCD{}
 	cpu.Bus.RegisterRange(0xFF40, 0xFF4B, lcd)
@@ -96,7 +116,7 @@ func main() {
 	cpu.Bus.RegisterHook(0xFF50, &ioregs.BootRomMapped{})
 	cpu.Bus.RegisterRange(0xFF04, 0xFF07, &ioregs.TimDiv{})
 	cpu.Bus.RegisterHook(0xFF0F, &ioregs.InterruptRegs{})
-	cpu.Bus.RegisterRange(0xFF01, 0xFF02, &ioregs.SerialDataTransfer{})
+	cpu.Bus.RegisterRange(0xFF01, 0xFF02, sdt)
 	cpu.Bus.RegisterRange(0xFF4C, 0xFF4D, &ioregs.KeyRegs{})
 	joypad := &ioregs.Joypad{Register: 0xF}
 	cpu.Bus.RegisterHook(0xFF00, joypad)
@@ -136,7 +156,9 @@ func main() {
 		}
 	}
 
-	// go cpu.Run()
+	if useSdt && !sdt.IsHost {
+		go sdt.ClientLoop(cpu)
+	}
 	for !rl.WindowShouldClose() {
 
 		if !useGamepad {
@@ -166,11 +188,14 @@ func main() {
 		rl.BeginDrawing()
 		// rl.DrawText(fmt.Sprintf("Joypad: %#x", joypad.Read()), 10, 200, 20, rl.White)
 		rl.ClearBackground(rl.Gray)
+
 		cyclesThisFrame := 0
 
 		for cyclesThisFrame < 70224/4 && !cpu.Panicked {
 			cycles := cpu.Step()
 			ppu.Step(cycles * 4)
+
+			sdt.Update(cpu)
 
 			cyclesThisFrame += cycles
 		}

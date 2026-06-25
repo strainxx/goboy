@@ -137,7 +137,8 @@ func (b *Bus) Write(addr uint16, value byte) {
 	case addr >= 0xC000 && addr <= 0xDFFF:
 		b.Memory[addr] = value
 	case addr >= 0xE000 && addr <= 0xFDFF:
-		b.Cpu.Panic("Write to echo ram") // echo ram
+		b.Memory[addr-0x2000] = value
+		// b.Cpu.Panic("Write to echo ram") // echo ram
 	case addr >= 0xFE00 && addr <= 0xFE9F:
 		if b.Cpu.PPU.Mode != 2 && b.Cpu.PPU.Mode != 3 {
 			// OAM scan or Pixel Transfer

@@ -53,25 +53,28 @@ func NewMBC1(romData []byte, path string) *MBC1 {
 }
 
 func (m *MBC1) Read(addr uint16) byte {
+	romMask := (len(m.rom) / 0x4000) - 1
 	switch {
 	case addr <= 0x3FFF:
 		if m.bankingMode == false {
 			// fmt.Printf("addr %#x bank %#x\n", addr)
 			return m.rom[addr]
 		} else {
-			bank := (m.ramBank << 5)
+			bank := int(m.ramBank<<5) & romMask
 			// fmt.Printf("addr %#x bank %#x\n", addr, bank)
 			return m.rom[(int(bank)*0x4000)+int(addr)]
 		}
 	case addr >= 0x4000 && addr <= 0x7FFF:
-		bank := (m.ramBank << 5) | m.romBank
+		bank := int((m.ramBank << 5) | m.romBank)
 
 		if bank == 0x00 || bank == 0x20 || bank == 0x40 || bank == 0x60 {
 			bank += 1
 		}
 
+		bank &= romMask
+
 		// fmt.Printf("addr %#x bank %#x\n", addr, bank)
-		realAddr := (int(bank) * 0x4000) + (int(addr) - 0x4000)
+		realAddr := (bank * 0x4000) + (int(addr) - 0x4000)
 		return m.rom[realAddr]
 	case addr >= 0xA000 && addr <= 0xBFFF:
 		if !m.ramEnabled {
@@ -81,6 +84,11 @@ func (m *MBC1) Read(addr uint16) byte {
 		if m.bankingMode {
 			bank = int(m.ramBank)
 		}
+		ramMask := (len(m.ram) / 0x2000) - 1
+		if ramMask < 0 {
+			return 0xFF
+		}
+		bank &= ramMask
 		realRamAddr := (bank * 0x2000) + int(addr-0xA000)
 		return m.ram[realRamAddr]
 	}
@@ -107,11 +115,15 @@ func (m *MBC1) Write(addr uint16, val byte) {
 		if !m.ramEnabled {
 			return
 		}
+		ramMask := (len(m.ram) / 0x2000) - 1
+		if ramMask < 0 {
+			return
+		}
 		if m.bankingMode == false { // 0
 			m.ram[addr-0xA000] = val
 		} else { // 1
 			// todo: select bank
-			bank := int(m.ramBank)
+			bank := int(m.ramBank) & ramMask
 			m.ram[(bank*0x2000)+(int(addr-0xA000))] = val
 		}
 	}

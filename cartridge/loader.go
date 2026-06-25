@@ -21,6 +21,9 @@ func Load(romData []byte, path string) (Cartridge, error) {
 	case 0x01, 0x02, 0x03:
 		fmt.Printf("Loaded MBC1 (Type: 0x%02X)\n", cartType)
 		return NewMBC1(romData, path), nil
+	case 0x0F, 0x10, 0x11, 0x12, 0x13:
+		fmt.Printf("Loaded MBC3 (Type: 0x%02X)\n", cartType)
+		return NewMBC3(romData, path), nil
 	default:
 		return nil, fmt.Errorf("unsupported cartridge type: 0x%02X", cartType)
 	}
