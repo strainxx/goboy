@@ -34,60 +34,60 @@ def gen_full_mnemonic(instr: dict):
 
 # with open("genimpl.go", "w") as f:
 #     f.write("package cpu\n\n")
-#     for op, instr in res["unprefixed"].items():
-#         mnemonic: str = instr['mnemonic']
-#         pair = []
-#         args = ["cpu"]
-#         prot_args = ["cpu *CPU"]
-#         for i, opp in enumerate(instr["operands"]):
-#             is_dec = opp.get("decrement", False)
-#             is_inc = opp.get("increment", False)
-#             suf = "inc" if is_inc else 'dec' if is_dec else 'mem' if not opp["immediate"] else ''
-#             if opp["name"] in r8:
-#                 pair.append("r8")
-#                 args.append("&cpu."+opp["name"])
-#                 prot_args.append(f"op{i} *byte")
-#             elif opp["name"] in r16:
-#                 pair.append("r16"+suf)
-#                 args.append(opp["name"])
-#                 prot_args.append(f"op{i} R16Enum")
-#             elif opp["name"] in ims:
-#                 pair.append(opp["name"])
-#             elif opp["name"].startswith("$"):
-#                 pair.append("vec")
-#             else:
-#                 raise Exception(f"Unknown op {opp['name']} ({op})")
-        
-#         str_args = ','.join(args) if len(args) != 0 else ''
-#         str_prot_args = ','.join(prot_args) if len(prot_args) != 0 else ''
-#         gen_name = "Impl_"+op#'_'.join([mnemonic, *[op["name"] for op in instr["operands"]]])
-#         # gen_name = gen_name.replace("$", "d")
-#         f.write(f"func {gen_name}(cpu *CPU) int {{\n")
-#         # f.write(f"\tcpu.Halt(\"{gen_name} not implemented!\")\n")
-#         callfunc = ""
-#         if len(pair) != 0:
-#             callfunc = f"{mnemonic}_{'_'.join(pair)}"
-#         else:
-#             callfunc = mnemonic
-#         f.write(f"\treturn {callfunc}({str_args})\n")
-#         # f.write(f"\treturn 0\n")
-#         f.write("}\n\n")
+for op, instr in res["unprefixed"].items():
+    mnemonic: str = instr['mnemonic']
+    pair = []
+    args = ["cpu"]
+    prot_args = ["cpu *CPU"]
+    for i, opp in enumerate(instr["operands"]):
+        is_dec = opp.get("decrement", False)
+        is_inc = opp.get("increment", False)
+        suf = "inc" if is_inc else 'dec' if is_dec else 'mem' if not opp["immediate"] else ''
+        if opp["name"] in r8:
+            pair.append("r8")
+            args.append("&cpu."+opp["name"])
+            prot_args.append(f"op{i} *byte")
+        elif opp["name"] in r16:
+            pair.append("r16"+suf)
+            args.append(opp["name"])
+            prot_args.append(f"op{i} R16Enum")
+        elif opp["name"] in ims:
+            pair.append(opp["name"])
+        elif opp["name"].startswith("$"):
+            pair.append("vec")
+        else:
+            raise Exception(f"Unknown op {opp['name']} ({op})")
+    
+    str_args = ','.join(args) if len(args) != 0 else ''
+    str_prot_args = ','.join(prot_args) if len(prot_args) != 0 else ''
+    gen_name = "Impl_"+op#'_'.join([mnemonic, *[op["name"] for op in instr["operands"]]])
+    # gen_name = gen_name.replace("$", "d")
+    # f.write(f"func {gen_name}(cpu *CPU) int {{\n")
+    # f.write(f"\tcpu.Halt(\"{gen_name} not implemented!\")\n")
+    callfunc = ""
+    if len(pair) != 0:
+        callfunc = f"{mnemonic}_{'_'.join(pair)}"
+    else:
+        callfunc = mnemonic
+    # f.write(f"\treturn {callfunc}({str_args})\n")
+    # f.write(f"\treturn 0\n")
+    # f.write("}\n\n")
 
-#         if False and callfunc not in protos:
-#             print(f"""\nfunc {callfunc}({str_prot_args}) int {{
-#     cpu.Halt("{callfunc} not implemented!")
-#     return 0
-# }}\n""")
-#             protos.add(callfunc)
+    if False and callfunc not in protos:
+        print(f"""\nfunc {callfunc}({str_prot_args}) int {{
+cpu.Halt("{callfunc} not implemented!")
+return 0
+}}\n""")
+        protos.add(callfunc)
 
-#         if True: print(f"""
-# Opcodes[{op}] = Instruction{{
-# 	Name:   "{gen_full_mnemonic(instr)}",
-# 	Bytes:   {instr["bytes"]},
-# 	Exec:   {gen_name} ,
-# }}
-# """)
-	# Cycles: {instr['cycles'][0]},
+    if True: print(f"""
+Opcodes[{op}] = Instruction{{
+Name:   "{gen_full_mnemonic(instr)}",
+Bytes:   {instr["bytes"]},
+Exec:   {gen_name} ,
+Cycles: {int(min(instr['cycles'])/4)},
+}}
+""")
         
 
 # with open("cbimpl.go", "w") as f:
@@ -148,5 +148,6 @@ CBOpcodes[{op}] = Instruction{{
 	Name:   "{gen_full_mnemonic(instr)}",
  	Bytes:   {instr["bytes"]},
 	Exec:   {gen_name} ,
+    Cycles: {int(min(instr['cycles'])/4)},
 }}
 """)

@@ -31,7 +31,7 @@ func (h *TimDiv) OnWrite(cpu *emu.CPU, addr uint16, val byte) {
 	case 0xFF05:
 		cpu.Timer.TIMA = val
 	case 0xFF07:
-		cpu.Timer.TAC = val
+		cpu.Timer.TAC = val & 0x07
 	default:
 		cpu.Panic("How????")
 	}

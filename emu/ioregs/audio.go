@@ -21,16 +21,19 @@ type CH4 struct {
 }
 
 type Audio struct {
-	on bool
+	NR52 byte // $FF26 Audio master control
 }
 
 func (r *Audio) OnRead(cpu *emu.CPU, addr uint16) byte {
-	// cpu.Halt(fmt.Sprintf("Read from I/O Register %#x not implemented!", addr))
-	// fmt.Printf("Audio not implemented!\n")
+	switch addr {
+	case 0xFF26:
+		return r.NR52
+	}
 	return 0xFF
 }
 
 func (h *Audio) OnWrite(cpu *emu.CPU, addr uint16, val byte) {
 	// cpu.Halt(fmt.Sprintf("Write to I/O Register %#x not implemented!", addr))
 	// fmt.Printf("Audio not implemented!\n")
+
 }

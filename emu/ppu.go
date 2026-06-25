@@ -6,7 +6,7 @@ var palette = []uint32{
 	0xFFFFFF,
 	0xAAAAAA,
 	0x555555,
-	0x000000, // blue
+	0x000000,
 }
 
 type Sprite struct {
@@ -80,6 +80,8 @@ func (p *PPU) Step(cycles int) {
 	if !lcdEnabled {
 		p.Cycle = 0
 		p.Scanline = 0
+		p.Mode = 0
+		p.WindowLine = 0
 
 		p.STAT = (p.STAT & 0xFC)
 		return

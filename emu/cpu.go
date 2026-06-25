@@ -42,7 +42,7 @@ func (c *CPU) Init(trace bool, log_ioregs bool) {
 	c.PPU.Cpu = c
 	c.Bus.Init()
 
-	c.Timer = &Timer{Cpu: c, timaCyclesLeft: 1024}
+	c.Timer = &Timer{Cpu: c}
 
 	c.OAM_DMA = 0xFF
 }
@@ -265,7 +265,7 @@ func (c *CPU) Step() int {
 				halt_bug = true
 			}
 		} else {
-			c.Timer.Step(4)
+			c.Timer.Step(1)
 			return 1
 		}
 	}
@@ -273,7 +273,7 @@ func (c *CPU) Step() int {
 	intCycles := c.HandleInterrupts()
 
 	if intCycles > 0 {
-		c.Timer.Step(intCycles * 4)
+		c.Timer.Step(intCycles)
 		return intCycles
 	}
 
@@ -301,6 +301,9 @@ func (c *CPU) Step() int {
 		fmt.Printf("[%#x] Step() op: %#x SP: %#x (%s)\n", oldpc, op, c.SP, instr.Name)
 	}
 	res := instr.Exec(c)
+	if res < instr.Cycles {
+		c.Panic(fmt.Sprintf("Instr %s took wrong count of cycles! %d < %d", instr.Name, res, instr.Cycles))
+	}
 	// if c.ReadsThisCycle != instr.Bytes {
 	// 	c.Panic(fmt.Sprintf("Instruction %s size missmatch! %d != %d", instr.Name, c.ReadsThisCycle, instr.Bytes))
 	// }
@@ -313,7 +316,7 @@ func (c *CPU) Step() int {
 		c.IMEDelay = false
 	}
 
-	c.Timer.Step(res * 4)
+	c.Timer.Step(res)
 	return res
 }
 
@@ -332,41 +335,53 @@ type Timer struct {
 	TMA  byte
 	TAC  byte
 
-	timaCyclesLeft int
+	overflowPending bool
 
 	Cpu *CPU
 }
 
-func (t *Timer) Step(cycles int) {
-	t.DIV += uint16(cycles)
+func (t *Timer) Step(mcycles int) {
+	for i := 0; i < mcycles; i++ {
 
-	if (t.TAC & 0x04) == 0 {
-		return // TIMA disabled
-	}
-
-	var threshold int
-	switch t.TAC & 0x03 {
-	case 0x00:
-		threshold = 1024
-	case 0x01:
-		threshold = 16
-	case 0x02:
-		threshold = 64
-	case 0x03:
-		threshold = 256
-	}
-
-	t.timaCyclesLeft -= cycles
-	for t.timaCyclesLeft <= 0 {
-		t.timaCyclesLeft += threshold
-
-		if t.TIMA == 0xFF {
+		if t.overflowPending {
+			t.overflowPending = false
 			t.TIMA = t.TMA
+			t.Cpu.IF |= 0x04
+		}
 
-			ifReg := t.Cpu.IF
-			t.Cpu.IF = ifReg | 0x04
-		} else {
-			t.TIMA++
+		oldSignal := t.getTimerSignal()
+
+		t.DIV += 4
+
+		newSignal := t.getTimerSignal()
+
+		if oldSignal == 1 && newSignal == 0 {
+			if t.TIMA == 0xFF {
+				t.TIMA = 0x00
+				t.overflowPending = true
+			} else {
+				t.TIMA++
+			}
 		}
 	}
+}
+
+func (t *Timer) getTimerSignal() byte {
+	if (t.TAC & 0x04) == 0 {
+		return 0
+	}
+
+	bitPos := uint16(0)
+	switch t.TAC & 0x03 {
+	case 0x00:
+		bitPos = 9
+	case 0x01:
+		bitPos = 3
+	case 0x02:
+		bitPos = 5
+	case 0x03:
+		bitPos = 7
+	}
+
+	return byte((t.DIV >> bitPos) & 1)
 }
