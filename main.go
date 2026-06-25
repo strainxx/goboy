@@ -67,12 +67,14 @@ func main() {
 	tracePtr := flag.Bool("trace", false, "Print executed instructions")
 	logIoPtr := flag.Bool("log-ioregs", false, "Log access to i/o regs")
 	gamepadPtr := flag.Bool("use-gamepad", false, "Try to use gamepad if available")
-	gamepadNumPtr := int32(*flag.Int("gamepad", 0, "Gamepad number"))
+	gamepadNumPtr := flag.Int("gamepad", 0, "Gamepad number")
 	hostPtr := flag.Bool("host", false, "Host 2 player mode")
 	connectPtr := flag.Bool("connect", false, "Connect to 2 player mode")
 	addrPtr := flag.String("addr", "localhost:9123", "Address of host")
 
 	flag.Parse()
+
+	gamepadNum := int32(*gamepadNumPtr)
 
 	rom, err := os.ReadFile(*gbFilePtr)
 	if err != nil {
@@ -107,7 +109,9 @@ func main() {
 	sdt := &ioregs.SerialDataTransfer{ShouldConnect: useSdt, Addr: *addrPtr, IsHost: *hostPtr}
 	sdt.Init()
 
-	cpu.Bus.RegisterRange(0xFF10, 0xFF3F, &ioregs.Audio{})
+	apu := &ioregs.Audio{}
+
+	cpu.Bus.RegisterRange(0xFF10, 0xFF3F, apu)
 	lcd := &ioregs.LCD{}
 	cpu.Bus.RegisterRange(0xFF40, 0xFF4B, lcd)
 	cpu.Bus.RegisterRange(0xFF47, 0xFF49, &ioregs.Palettes{})
@@ -151,7 +155,7 @@ func main() {
 	var useGamepad bool
 
 	if *gamepadPtr {
-		if rl.IsGamepadAvailable(gamepadNumPtr) {
+		if rl.IsGamepadAvailable(gamepadNum) {
 			useGamepad = true
 		}
 	}
@@ -174,14 +178,14 @@ func main() {
 			)
 		} else {
 			joypad.UpdateAll(cpu,
-				rl.IsGamepadButtonDown(gamepadNumPtr, rl.GamepadButtonRightFaceDown),  // A
-				rl.IsGamepadButtonDown(gamepadNumPtr, rl.GamepadButtonRightFaceRight), // B
-				rl.IsGamepadButtonDown(gamepadNumPtr, rl.GamepadButtonRightFaceLeft),  // Select
-				rl.IsGamepadButtonDown(gamepadNumPtr, rl.GamepadButtonRightFaceUp),    // Start
-				rl.GetGamepadAxisMovement(gamepadNumPtr, rl.GamepadAxisLeftY) < -0.1,  // Up
-				rl.GetGamepadAxisMovement(gamepadNumPtr, rl.GamepadAxisLeftY) > 0.1,   // Down
-				rl.GetGamepadAxisMovement(gamepadNumPtr, rl.GamepadAxisLeftX) < -0.1,  // Left
-				rl.GetGamepadAxisMovement(gamepadNumPtr, rl.GamepadAxisLeftX) > 0.1,   // Right
+				rl.IsGamepadButtonDown(gamepadNum, rl.GamepadButtonRightFaceDown),  // A
+				rl.IsGamepadButtonDown(gamepadNum, rl.GamepadButtonRightFaceRight), // B
+				rl.IsGamepadButtonDown(gamepadNum, rl.GamepadButtonRightFaceLeft),  // Select
+				rl.IsGamepadButtonDown(gamepadNum, rl.GamepadButtonRightFaceUp),    // Start
+				rl.GetGamepadAxisMovement(gamepadNum, rl.GamepadAxisLeftY) < -0.1,  // Up
+				rl.GetGamepadAxisMovement(gamepadNum, rl.GamepadAxisLeftY) > 0.1,   // Down
+				rl.GetGamepadAxisMovement(gamepadNum, rl.GamepadAxisLeftX) < -0.1,  // Left
+				rl.GetGamepadAxisMovement(gamepadNum, rl.GamepadAxisLeftX) > 0.1,   // Right
 			)
 		}
 
@@ -194,6 +198,7 @@ func main() {
 		for cyclesThisFrame < 70224/4 && !cpu.Panicked {
 			cycles := cpu.Step()
 			ppu.Step(cycles * 4)
+			apu.Step()
 
 			sdt.Update(cpu)
 
