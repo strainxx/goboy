@@ -9,6 +9,20 @@ var palette = []uint32{
 	0x000000,
 }
 
+// var palette = []uint32{
+// 	0x9bbc0f,
+// 	0x77a112,
+// 	0x306230,
+// 	0x0f380f,
+// } // green
+
+// var palette = []uint32{
+// 	0xFFFFFF,
+// 	0xff8f84,
+// 	0x943a3a,
+// 	0x000000,
+// } //red
+
 type Sprite struct {
 	Y        int
 	X        int
@@ -146,7 +160,9 @@ func (p *PPU) renderScanline() {
 
 	y := p.Scanline
 
-	windowEnabled := (p.LCDC&0x20) != 0 && y >= int(p.WY)
+	bgWinEnabled := (p.LCDC & 0x01) != 0
+
+	windowEnabled := (p.LCDC&0x20) != 0 && y >= int(p.WY) && bgWinEnabled
 	windowDrawnOnThisLine := false
 
 	for x := 0; x < 160; x++ {
@@ -156,6 +172,11 @@ func (p *PPU) renderScanline() {
 		var pixelX, pixelY int
 
 		isWindowPixel := windowEnabled && x >= (int(p.WX)-7)
+		if !bgWinEnabled {
+			pixelColor := palette[0]
+			p.Framebuffer[y][x] = pixelColor
+			continue
+		}
 
 		if isWindowPixel {
 			windowDrawnOnThisLine = true
